@@ -2,39 +2,56 @@ import React, { useState } from 'react';
 import { TextField, Button, Box, Link, Typography } from '@mui/material';
 import AuthCard from '../components/AuthCard';
 import AlertMessage from '../components/AlertMessage';
-import { api, saveTokens } from '../services/api';
+import { api } from '../services/api';
 
-interface LoginPageProps {
-  onLogin?: (accessToken: string) => void;
-  onNavigateRegister?: () => void;
+interface RegisterPageProps {
+  onRegister?: () => void;
+  onNavigateLogin?: () => void;
 }
 
-export default function LoginPage({ onLogin, onNavigateRegister }: LoginPageProps) {
+export default function RegisterPage({ onRegister, onNavigateLogin }: RegisterPageProps) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     setLoading(true);
 
     try {
-      const data = await api.login({ email, password });
-      saveTokens(data.access_token, data.refresh_token);
-      onLogin?.(data.access_token);
+      await api.register({ name, email, password });
+      setSuccess('Conta criada com sucesso! Faça login para continuar.');
+      setName('');
+      setEmail('');
+      setPassword('');
+      setTimeout(() => onRegister?.(), 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao fazer login');
+      setError(err instanceof Error ? err.message : 'Erro ao cadastrar');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <AuthCard title="Entrar">
+    <AuthCard title="Criar Conta">
       <AlertMessage message={error} />
+      <AlertMessage message={success} severity="success" />
       <Box component="form" onSubmit={handleSubmit} noValidate>
+        <TextField
+          label="Nome completo"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          fullWidth
+          required
+          margin="normal"
+          autoComplete="name"
+          data-testid="name-input"
+        />
         <TextField
           label="Email"
           type="email"
@@ -54,7 +71,8 @@ export default function LoginPage({ onLogin, onNavigateRegister }: LoginPageProp
           fullWidth
           required
           margin="normal"
-          autoComplete="current-password"
+          autoComplete="new-password"
+          helperText="Mínimo de 6 caracteres"
           data-testid="password-input"
         />
         <Button
@@ -64,15 +82,15 @@ export default function LoginPage({ onLogin, onNavigateRegister }: LoginPageProp
           size="large"
           disabled={loading}
           sx={{ mt: 2, mb: 1, py: 1.5 }}
-          data-testid="login-button"
+          data-testid="register-button"
         >
-          {loading ? 'Entrando...' : 'Entrar'}
+          {loading ? 'Criando conta...' : 'Criar Conta'}
         </Button>
-        {onNavigateRegister && (
+        {onNavigateLogin && (
           <Typography variant="body2" align="center">
-            Não tem conta?{' '}
-            <Link component="button" type="button" onClick={onNavigateRegister} sx={{ cursor: 'pointer' }}>
-              Cadastre-se
+            Já tem conta?{' '}
+            <Link component="button" type="button" onClick={onNavigateLogin} sx={{ cursor: 'pointer' }}>
+              Fazer login
             </Link>
           </Typography>
         )}
