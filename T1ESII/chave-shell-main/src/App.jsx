@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 // Import lazy do microfrontend remoto
 const LoginPage = lazy(() => import("mfe_auth/LoginPage"));
+const RegisterPage = lazy(() => import("mfe_auth/RegisterPage"));
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem("token");
@@ -36,6 +37,17 @@ export default function App() {
             element={
               <LoginPage
                 onLogin={() => (window.location.href = "/")}
+              />
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <RegisterPage
+                onRegistered={() => {
+                  alert("Conta criada com sucesso! Faça o login.");
+                  window.location.href = "/login";
+                }}
               />
             }
           />
