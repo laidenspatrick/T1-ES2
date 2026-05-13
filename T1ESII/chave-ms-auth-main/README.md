@@ -1,64 +1,96 @@
 # chave-ms-auth
 
-Microsserviço de autenticação do projeto **Chave**.
+Microsserviço de autenticação do projeto **Chave — Autoavaliação de Competências para Pessoas Idosas** (PUCRS/UFRGS).
 
-Expõe uma API REST com JWT para login, refresh, logout e consulta do usuário autenticado. Persiste usuários em PostgreSQL (provisionado pelo Ministack via `chave-infra`).
-
----
-
-## Tecnologias
-
-- Node.js + Express
-- JWT (`jsonwebtoken`) — access token (15 min) + refresh token (7 dias)
-- bcryptjs — hash de senhas
-- PostgreSQL (`pg`)
+API REST com JWT (access + refresh), RBAC por `role` e documentação Swagger em `/docs`.
 
 ---
 
 ## Endpoints
 
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/auth/login` | Autentica com email e senha; retorna `token` e `refresh` |
-| POST | `/auth/refresh` | Troca um refresh token válido por um novo access token |
-| POST | `/auth/logout` | Encerra a sessão (stateless) |
-| GET | `/auth/me` | Retorna os dados do usuário autenticado (`Authorization: Bearer <token>`) |
+| Método | Rota | Auth | Descrição |
+|--------|------|------|-----------|
+| GET | `/health` | — | Health check |
+| POST | `/auth/register` | — | Registrar usuário (`name`, `email`, `password`) |
+| POST | `/auth/login` | — | Login → `{ access_token, refresh_token }` |
+| POST | `/auth/refresh` | — | Renovar access token via `refresh_token` |
+| POST | `/auth/logout` | — | Revogar refresh token no banco |
+| GET | `/auth/me` | Bearer | Dados do usuário autenticado |
+| GET | `/auth/admin/users` | Bearer + `role=admin` | Listar todos os usuários |
+
+Swagger completo em **`http://localhost:3001/docs`**.
+
+---
+
+## RBAC
+
+O campo `role` do usuário pode ser `user` (padrão) ou `admin`.  
+Endpoints protegidos verificam o papel via middleware `requireRole('admin')`.  
+Para promover um usuário a admin, altere diretamente no banco:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'seu@email.com';
+```
 
 ---
 
 ## Variáveis de ambiente
 
-Copie `.env.example` e ajuste conforme necessário:
+Copie e ajuste:
 
 ```bash
 cp .env.example .env
 ```
 
 | Variável | Padrão | Descrição |
-|---|---|---|
+|----------|--------|-----------|
 | `PORT` | `3001` | Porta do servidor |
-| `JWT_SECRET` | `change-me` | Segredo para assinar os tokens |
-| `DB_HOST` | `localhost` | Host do PostgreSQL |
+| `JWT_SECRET` | `dev-secret` | Segredo para assinar access tokens |
+| `JWT_REFRESH_SECRET` | `dev-refresh-secret` | Segredo para assinar refresh tokens |
+| `DB_HOST` | — | Host do PostgreSQL |
 | `DB_PORT` | `5432` | Porta do PostgreSQL |
-| `DB_USER` | `chave` | Usuário do banco |
-| `DB_PASSWORD` | `chave_secret` | Senha do banco |
-| `DB_NAME` | `chave_auth` | Nome do banco |
-| `AWS_ENDPOINT` | `http://localhost:4566` | Endpoint do Ministack |
+| `DB_USER` | — | Usuário do banco |
+| `DB_PASSWORD` | — | Senha do banco |
+| `DB_NAME` | — | Nome do banco |
 
 ---
 
-## Desenvolvimento local (sem Docker)
+## Como rodar
+
+### Desenvolvimento local
 
 ```bash
 npm install
-npm run dev
+npm run dev   # nodemon — hot reload
 ```
 
-> Para rodar isolado, é necessário ter o PostgreSQL disponível na porta configurada em `.env`.
-> Em ambiente completo, use `make setup` no `chave-infra`.
+> Requer PostgreSQL disponível. Veja as variáveis acima.
+
+### Via docker-compose (recomendado)
+
+```bash
+cd ../chave-infra-main
+make setup    # sobe todos os serviços
+```
+
+### Testes
+
+```bash
+npm test                # roda os testes
+npm run test:coverage   # com relatório de cobertura
+```
+
+### Lint
+
+```bash
+npm run lint
+```
 
 ---
 
-## Executando com a stack completa
+## Secrets necessários no GitHub Actions
 
-Este serviço é orquestrado pelo `chave-infra`. Consulte o [README do chave-infra](https://github.com/pucrs-sweii-2026-1-30/chave-infra).
+| Secret | Descrição |
+|--------|-----------|
+| `DOCKERHUB_USERNAME` | Usuário do Docker Hub |
+| `DOCKERHUB_TOKEN` | Token de acesso do Docker Hub |
