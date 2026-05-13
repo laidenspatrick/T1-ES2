@@ -20,16 +20,16 @@ Todos os repositórios devem estar dentro do mesmo diretório:
 
 ```
 projeto/
-├── chave-infra/          ← este repositório
+├── chave-infra-main/     ← este repositório
 │   ├── terraform/
 │   │   ├── main.tf
 │   │   └── variables.tf
 │   ├── docker-compose.yml
 │   ├── Makefile
 │   └── .env.example
-├── chave-ms-auth/        ← microsserviço
-├── chave-mfe-auth/       ← microfrontend
-└── chave-shell/          ← shell do frontend
+├── chave-ms-auth-main/   ← microsserviço
+├── chave-mfe-auth-main/  ← microfrontend
+└── chave-shell-main/     ← shell do frontend
 ```
 
 ### Clonando os repositórios irmãos
@@ -47,7 +47,7 @@ git clone <url-chave-infra>    chave-infra
 ## Configuração inicial
 
 ```bash
-cd chave-infra
+cd chave-infra-main
 
 # 1. Copie e edite as variáveis de ambiente
 cp .env.example .env
@@ -55,6 +55,14 @@ cp .env.example .env
 
 # 2. Sobe toda a stack
 make setup
+```
+
+### Sem `make` (Windows)
+
+Se você não tiver `make` instalado, rode direto via Docker Compose:
+
+```bash
+docker-compose up -d --build
 ```
 
 O `make setup`:

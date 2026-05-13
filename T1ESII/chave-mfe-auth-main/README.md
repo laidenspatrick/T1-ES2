@@ -2,13 +2,15 @@
 
 Microfrontend de autenticação do projeto **Chave**.
 
-Expõe o componente `LoginPage` via **Module Federation** para ser consumido pelo `chave-shell`. Construído com React + Vite.
+Expõe as páginas `LoginPage` e `RegisterPage` via **Module Federation** para serem consumidas pelo `chave-shell`. Construído com React + Vite + TypeScript e componentes do **MUI**.
 
 ---
 
 ## Tecnologias
 
 - React 18
+- TypeScript
+- MUI (`@mui/material`) + Emotion
 - Vite 5
 - `@originjs/vite-plugin-federation` — Module Federation
 - `@vitejs/plugin-react`
@@ -23,7 +25,8 @@ Este microfrontend atua como **remote**:
 |---|---|
 | Nome | `mfe_auth` |
 | Entry point | `http://localhost:4001/assets/remoteEntry.js` |
-| Expõe | `./LoginPage` → `src/pages/LoginPage.jsx` |
+| Expõe | `./LoginPage` → `src/pages/LoginPage.tsx` |
+|  | `./RegisterPage` → `src/pages/RegisterPage.tsx` |
 | Shared | `react`, `react-dom` |
 
 ---
@@ -33,6 +36,12 @@ Este microfrontend atua como **remote**:
 | Variável | Descrição |
 |---|---|
 | `VITE_MS_AUTH_URL` | URL do `chave-ms-auth` (ex: `http://localhost:3001`) |
+
+Crie um arquivo `.env` a partir do exemplo:
+
+```bash
+cp .env.example .env
+```
 
 ---
 

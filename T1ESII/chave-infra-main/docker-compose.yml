@@ -40,7 +40,7 @@ services:
 
   chave-ms-auth:
     build:
-      context: ../chave-ms-auth
+      context: ../chave-ms-auth-main
       dockerfile: Dockerfile
     container_name: chave-ms-auth
     ports:
@@ -65,7 +65,7 @@ services:
 
   chave-mfe-auth:
     build:
-      context: ../chave-mfe-auth
+      context: ../chave-mfe-auth-main
       dockerfile: Dockerfile
     container_name: chave-mfe-auth
     ports:
@@ -83,7 +83,7 @@ services:
 
   chave-shell:
     build:
-      context: ../chave-shell
+      context: ../chave-shell-main
       dockerfile: Dockerfile
       args:
         - MFE_AUTH_URL=http://localhost:4001/assets/remoteEntry.js
