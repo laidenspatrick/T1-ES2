@@ -1,68 +1,45 @@
-.PHONY: setup up down logs reset tf-init tf-apply
+.PHONY: setup up down logs reset health
 
-COMPOSE       = docker compose
-MINISTACK_URL = http://localhost:4566/_localstack/health
-TF_DIR        = terraform
+ENV_FILE := .env
 
-# Aguarda o Ministack estar saudável antes de prosseguir
-wait-ministack:
-	@echo "[make] Aguardando Ministack ficar disponível..."
-	@for i in $$(seq 1 30); do \
-		STATUS=$$(curl -sf $(MINISTACK_URL) | python3 -c "import sys,json; d=json.load(sys.stdin); svcs=d.get('services',{}); print('running' if svcs else 'not-ready')" 2>/dev/null || echo "not-ready"); \
-		echo "[make]   status: $$STATUS (tentativa $$i/30)"; \
-		if [ "$$STATUS" = "running" ]; then echo "[make] Ministack pronto."; break; fi; \
-		if [ "$$i" = "30" ]; then echo "[make] ERRO: Ministack não ficou disponível a tempo." && exit 1; fi; \
-		sleep 5; \
-	done
+setup: check-env up
+	@echo ""
+	@echo "✅ Ambiente iniciado com sucesso!"
+	@echo ""
+	@echo "   Shell:        http://localhost:3000"
+	@echo "   Auth API:     http://localhost:3001"
+	@echo "   Swagger:      http://localhost:3001/docs"
+	@echo "   MFE Auth:     http://localhost:4001"
+	@echo ""
 
-# Inicializa os providers do Terraform
-tf-init:
-	@echo "[make] Inicializando Terraform..."
-	terraform -chdir=$(TF_DIR) init
-
-# Provisiona os recursos no Ministack via Terraform
-tf-apply:
-	@echo "[make] Provisionando recursos via Terraform..."
-	TF_VAR_db_name=$${DB_NAME:-chave_auth} \
-	TF_VAR_db_user=$${DB_USER:-chave} \
-	TF_VAR_db_password=$${DB_PASSWORD:-chave_secret} \
-	TF_VAR_ms_auth_port=$${MS_AUTH_PORT:-3001} \
-	terraform -chdir=$(TF_DIR) apply -auto-approve
-
-# Sobe o Ministack, aguarda, provisiona via Terraform e depois sobe todos os serviços
-setup: .env tf-init
-	@echo "[make] Iniciando setup completo..."
-	$(COMPOSE) up -d ministack
-	@$(MAKE) wait-ministack
-	@$(MAKE) tf-apply
-	@echo "[make] Subindo todos os serviços..."
-	$(COMPOSE) up -d
-	@echo "[make] Setup concluído."
-
-# Sobe todos os serviços em modo detached
-up: .env
-	$(COMPOSE) up -d
-
-# Para e remove os containers
-down:
-	$(COMPOSE) down
-
-# Acompanha os logs de todos os serviços
-logs:
-	$(COMPOSE) logs -f
-
-# Derruba tudo, remove volumes e refaz o setup do zero
-reset:
-	@echo "[make] Derrubando todos os serviços e removendo volumes..."
-	$(COMPOSE) down -v --remove-orphans
-	@echo "[make] Reiniciando setup..."
-	@$(MAKE) setup
-
-# Garante que o .env exista antes de qualquer comando que precise dele
-.env:
-	@if [ ! -f .env ]; then \
-		echo "[make] Arquivo .env não encontrado. Copiando .env.example..."; \
+check-env:
+	@if [ ! -f $(ENV_FILE) ]; then \
+		echo "⚠️  Arquivo .env não encontrado. Copiando .env.example..."; \
 		cp .env.example .env; \
-		echo "[make] Edite o arquivo .env com suas configurações e rode make setup novamente."; \
-		exit 1; \
+		echo "✅ .env criado. Edite se necessário e rode 'make setup' novamente."; \
 	fi
+
+up:
+	@echo "🚀 Iniciando serviços..."
+	docker compose --env-file $(ENV_FILE) up -d --build
+
+down:
+	@echo "🛑 Parando serviços..."
+	docker compose down
+
+logs:
+	docker compose logs -f
+
+logs-auth:
+	docker compose logs -f chave-ms-auth
+
+reset:
+	@echo "🔄 Reset completo..."
+	docker compose down -v
+	docker compose --env-file $(ENV_FILE) up -d --build
+
+health:
+	@echo "Verificando serviços..."
+	@curl -sf http://localhost:3001/health && echo "✅ chave-ms-auth OK" || echo "❌ chave-ms-auth INDISPONÍVEL"
+	@curl -sf http://localhost:4001 > /dev/null && echo "✅ chave-mfe-auth OK" || echo "❌ chave-mfe-auth INDISPONÍVEL"
+	@curl -sf http://localhost:3000 > /dev/null && echo "✅ chave-shell OK" || echo "❌ chave-shell INDISPONÍVEL"
