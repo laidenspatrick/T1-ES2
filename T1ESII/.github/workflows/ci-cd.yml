@@ -2,50 +2,153 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
-  build-and-test:
+  # ── Testes e lint do MS Auth ────────────────────────────────────────────────
+  lint-and-test-ms:
+    name: MS Auth — lint + test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: T1ESII/chave-ms-auth-main
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Use Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: T1ESII/chave-ms-auth-main/package-lock.json
 
-    - name: MS Auth - Install, Test and Build
-      working-directory: ./T1ESII/chave-ms-auth-main
-      run: |
-        npm install
-        npm test --if-present
+      - run: npm ci
 
-    - name: MFE Auth - Install, Test and Build
-      working-directory: ./T1ESII/chave-mfe-auth-main
-      run: |
-        npm install
-        npm test --if-present
-        npm run build
+      - run: npm run lint
 
-    - name: Shell - Install, Test and Build
-      working-directory: ./T1ESII/chave-shell-main
-      run: |
-        npm install
-        npm test --if-present
-        npm run build
+      - run: npm run test:coverage
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ms-auth-coverage
+          path: T1ESII/chave-ms-auth-main/coverage/
+
+  # ── Testes e lint do MFE Auth ───────────────────────────────────────────────
+  lint-and-test-mfe:
+    name: MFE Auth — lint + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: T1ESII/chave-mfe-auth-main
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: T1ESII/chave-mfe-auth-main/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run test:coverage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mfe-auth-coverage
+          path: T1ESII/chave-mfe-auth-main/coverage/
+
+  # ── Build do Shell ──────────────────────────────────────────────────────────
+  build-shell:
+    name: Shell — build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: T1ESII/chave-shell-main
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: T1ESII/chave-shell-main/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shell-dist
+          path: T1ESII/chave-shell-main/dist/
+
+  # ── Release (somente push para main) ───────────────────────────────────────
   release:
-    needs: build-and-test
+    name: Release
+    needs: [lint-and-test-ms, lint-and-test-mfe, build-shell]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        
-      - name: Create Release Placeholder
-        run: echo "Release generation logic here (e.g. semantic-release)"
+      - uses: actions/checkout@v4
+
+      # Build MFE Auth
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: T1ESII/chave-mfe-auth-main/package-lock.json
+
+      - name: Build MFE Auth
+        working-directory: T1ESII/chave-mfe-auth-main
+        run: npm ci && npm run build
+
+      # Build Shell
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: T1ESII/chave-shell-main/package-lock.json
+
+      - name: Build Shell
+        working-directory: T1ESII/chave-shell-main
+        run: npm ci && npm run build
+
+      # Compacta artefatos frontend
+      - name: Empacotar artefatos frontend
+        run: |
+          tar -czf frontend-dist-${{ github.run_number }}.tar.gz \
+            -C T1ESII/chave-mfe-auth-main dist \
+            -C ../../chave-shell-main dist
+
+      # Docker: build e push do MS Auth
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: T1ESII/chave-ms-auth-main
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/chave-ms-auth:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/chave-ms-auth:sha-${{ github.sha }}
+
+      # Criar GitHub Release
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: run-${{ github.run_number }}
+          name: Release run-${{ github.run_number }}
+          body: |
+            Build automático do branch `main`.
+
+            **Imagem Docker:** `${{ secrets.DOCKERHUB_USERNAME }}/chave-ms-auth:sha-${{ github.sha }}`
+          files: frontend-dist-${{ github.run_number }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
