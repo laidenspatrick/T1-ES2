@@ -18,6 +18,63 @@ const pool = new Pool({
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const PORT = process.env.PORT || 3001;
 
+// Criar tabela de usuÃ¡rios se nÃ£o existir e injetar usuÃ¡rio de teste
+pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL
+  )
+`).then(async () => {
+  // === INJEÇÃO DO USUÁRIO DE TESTE (Requisito 1) ===
+  const emailTeste = "teste@teste.com";
+  const senhaTeste = "123456";
+  const { rowCount } = await pool.query("SELECT * FROM users WHERE email = $1", [emailTeste]);
+  
+  if (rowCount === 0) {
+    const hash = await bcrypt.hash(senhaTeste, 10);
+    await pool.query("INSERT INTO users (email, password_hash) VALUES ($1, $2)", [emailTeste, hash]);
+    console.log(`[SEED] Usuário de teste '${emailTeste}' criado com sucesso!`);
+  }
+}).catch(console.error);
+
+// === MIDDLEWARE DE CONTROLE DE ACESSO (RBAC / JWT) ===
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1]; // Pega o token após o "Bearer"
+
+  if (!token) return res.status(401).json({ error: "Acesso negado: Token não fornecido" });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: "Acesso negado: Token inválido ou expirado" });
+    
+    req.user = user; // Injeta os dados do usuário na requisição
+    next(); // Passa para a próxima rota
+  });
+}
+
+// POST /auth/register
+app.post("/auth/register", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password)
+    return res.status(400).json({ error: "email e password são obrigatórios" });
+
+  try {
+    const password_hash = await bcrypt.hash(password, 10);
+    const { rows } = await pool.query(
+      "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email",
+      [email, password_hash]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    if (err.code === "23505") { // unique_violation do postgres
+      res.status(400).json({ error: "E-mail já cadastrado" });
+    } else {
+      res.status(500).json({ error: "Erro ao criar usuário" });
+    }
+  }
+});
+
 // POST /auth/login
 app.post("/auth/login", async (req, res) => {
   const { email, password } = req.body;
@@ -57,18 +114,13 @@ app.post("/auth/logout", (_req, res) => {
   res.status(204).send();
 });
 
-// GET /auth/me
-app.get("/auth/me", (req, res) => {
-  const auth = req.headers.authorization;
-  if (!auth?.startsWith("Bearer "))
-    return res.status(401).json({ error: "Token não fornecido" });
-
-  try {
-    const payload = jwt.verify(auth.slice(7), JWT_SECRET);
-    res.json({ id: payload.sub, email: payload.email });
-  } catch {
-    res.status(401).json({ error: "Token inválido ou expirado" });
-  }
+// GET /auth/me (Rota Protegida usando o Middleware)
+app.get("/auth/me", authenticateToken, (req, res) => {
+  // Se passou pelo middleware, req.user estará disponível
+  res.json({ 
+    message: "Acesso autorizado!", 
+    user: { id: req.user.sub, email: req.user.email } 
+  });
 });
 
 app.listen(PORT, () => console.log(`chave-ms-auth rodando na porta ${PORT}`));

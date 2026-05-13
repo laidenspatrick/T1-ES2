@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import AccountPage from './pages/AccountPage';
+import LoginPage from './pages/LoginPage.tsx';
+import RegisterPage from './pages/RegisterPage.tsx';
+import AccountPage from './pages/AccountPage.tsx';
 
 const theme = createTheme({
   palette: {

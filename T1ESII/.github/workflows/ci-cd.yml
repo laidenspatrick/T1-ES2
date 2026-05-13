@@ -1,0 +1,51 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+
+    - name: MS Auth - Install, Test and Build
+      working-directory: ./T1ESII/chave-ms-auth-main
+      run: |
+        npm install
+        npm test --if-present
+
+    - name: MFE Auth - Install, Test and Build
+      working-directory: ./T1ESII/chave-mfe-auth-main
+      run: |
+        npm install
+        npm test --if-present
+        npm run build
+
+    - name: Shell - Install, Test and Build
+      working-directory: ./T1ESII/chave-shell-main
+      run: |
+        npm install
+        npm test --if-present
+        npm run build
+
+  release:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Create Release Placeholder
+        run: echo "Release generation logic here (e.g. semantic-release)"
