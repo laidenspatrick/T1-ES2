@@ -1,89 +1,96 @@
-import { useState } from "react";
-import { Box, Card, Typography, TextField, Button, Link } from "@mui/material";
+import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { Box, Card, Typography, TextField, Button, Link } from '@mui/material';
+import { api, saveTokens } from '../services/api';
+import AlertMessage from '../components/AlertMessage';
 
-const API = import.meta.env.VITE_MS_AUTH_URL || "http://localhost:3001";
+type LoginForm = { email: string; password: string };
 
-export default function LoginPage({ onLogin }: { onLogin?: (data: any) => void }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+export default function LoginPage({ onLogin }: { onLogin?: () => void }) {
+  const { control, handleSubmit, formState: { isSubmitting } } = useForm<LoginForm>();
+  const [serverError, setServerError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
+  const onSubmit = async (data: LoginForm) => {
+    setServerError(null);
     try {
-      const res = await fetch(`${API}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        const { error: msg } = await res.json();
-        throw new Error(msg || "Erro ao fazer login");
-      }
-
-      const data = await res.json();
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("refresh", data.refresh);
-      onLogin?.(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      const tokens = await api.login(data);
+      saveTokens(tokens.access_token, tokens.refresh_token);
+      onLogin?.();
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : 'Erro ao fazer login');
     }
   };
 
   return (
-    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", bgcolor: "grey.100" }}>
-      <Card sx={{ p: 4, width: "100%", maxWidth: 380, borderRadius: 3, boxShadow: 3 }}>
-        <Typography variant="h5" component="h2" align="center" gutterBottom color="text.primary" sx={{ fontWeight: "bold" }}>
+    <Box
+      sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', bgcolor: 'grey.100' }}
+    >
+      <Card sx={{ p: 4, width: '100%', maxWidth: 400, borderRadius: 3, boxShadow: 3 }}>
+        <Typography variant="h5" component="h2" align="center" gutterBottom fontWeight="bold">
           Chave — Entrar
         </Typography>
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="E-mail"
-            type="email"
-            placeholder="seu@email.com"
-            margin="normal"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <Controller
+            name="email"
+            control={control}
+            defaultValue=""
+            rules={{
+              required: 'E-mail é obrigatório',
+              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'E-mail inválido' },
+            }}
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                data-testid="email-input"
+                fullWidth
+                label="E-mail"
+                type="email"
+                margin="normal"
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message}
+              />
+            )}
           />
-          <TextField
-            fullWidth
-            label="Senha"
-            type="password"
-            placeholder="••••••••"
-            margin="normal"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
+          <Controller
+            name="password"
+            control={control}
+            defaultValue=""
+            rules={{ required: 'Senha é obrigatória' }}
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                data-testid="password-input"
+                fullWidth
+                label="Senha"
+                type="password"
+                margin="normal"
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message}
+              />
+            )}
           />
-          {error && (
-            <Typography color="error" variant="body2" sx={{ mt: 1 }}>
-              {error}
-            </Typography>
-          )}
+          <AlertMessage message={serverError} severity="error" />
           <Button
+            data-testid="login-button"
             fullWidth
             type="submit"
             variant="contained"
             color="primary"
-            disabled={loading}
+            disabled={isSubmitting}
             sx={{ mt: 3, mb: 2, py: 1.5, borderRadius: 2 }}
           >
-            {loading ? "Entrando..." : "Entrar"}
+            {isSubmitting ? 'Entrando...' : 'Entrar'}
           </Button>
         </form>
-        <Box sx={{ textAlign: "center", mt: 1 }}>
+        <Box sx={{ textAlign: 'center', mt: 1 }}>
           <Link href="/register" underline="hover" color="primary">
             Não possui conta? Cadastre-se
           </Link>
+          <Box sx={{ mt: 1 }}>
+            <Link href="/forgot-password" underline="hover" color="primary">
+              Esqueci minha senha
+            </Link>
+          </Box>
         </Box>
       </Card>
     </Box>

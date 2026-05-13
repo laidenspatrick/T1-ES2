@@ -106,7 +106,7 @@ export default function AccountPage({ onLogout }: AccountPageProps) {
                 <Box sx={{ mt: 0.5 }}>
                   <Chip
                     label={user.role}
-                    color={user.role === 'ADMIN' ? 'error' : 'primary'}
+                    color={user.role === 'admin' ? 'error' : 'primary'}
                     size="small"
                   />
                 </Box>

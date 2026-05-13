@@ -12,6 +12,7 @@ export default defineConfig({
         './LoginPage': './src/pages/LoginPage.tsx',
         './RegisterPage': './src/pages/RegisterPage.tsx',
         './AccountPage': './src/pages/AccountPage.tsx',
+        './ForgotPasswordPage': './src/pages/ForgotPasswordPage.tsx',
       },
       shared: ['react', 'react-dom'],
     }),
